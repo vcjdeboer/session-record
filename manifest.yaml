@@ -1,0 +1,18 @@
+manifestVersion: 1
+name: "@vcjdeboer/session-record"
+version: "2026.06.21.1"
+description: "A language-agnostic provenance ledger for interactive data-science sessions: append one immutable record per executed cell/chunk — code, value, figures, console, warnings, packages, and runtime-declared functions with their internal dependencies — from any client (R/RStudio, Python/Jupyter, targets, …)."
+repository: "https://github.com/vcjdeboer/session-record"
+paths:
+  base: manifest
+models:
+  - session_record.ts
+additionalFiles:
+  - README.md
+  - LICENSE.md
+labels:
+  - provenance
+  - reproducibility
+  - data-science
+  - jupyter
+  - r
