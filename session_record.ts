@@ -337,7 +337,7 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
 /** The session-record model definition. */
 export const model = {
   type: "@vcjdeboer/session-record",
-  version: "2026.06.21.1",
+  version: "2026.06.21.2",
   globalArguments: z.object({}),
   resources: {
     "execution": {
