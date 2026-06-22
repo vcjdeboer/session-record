@@ -383,7 +383,7 @@ export const model = {
     },
   },
   methods: {
-    "record": {
+    record: {
       description:
         "Record one code execution's input→code→output triple (language-agnostic passive ledger)",
       arguments: RecordArgsSchema,
