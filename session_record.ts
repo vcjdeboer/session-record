@@ -334,10 +334,38 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
     .join("");
 }
 
+const QueryArgsSchema = z.object({
+  /** Session to roll up. Empty => the LATEST session in the ledger. */
+  session: z.string().default(""),
+  /** What to project alongside the always-present counts. */
+  kind: z.enum(["summary", "warnings", "functions", "errors"]).default(
+    "summary",
+  ),
+});
+
+const QueryResultSchema = z.object({
+  session: z.string(),
+  kind: z.string(),
+  /** Records in the target session. */
+  records: z.number().int(),
+  seqRange: z.string().default(""),
+  clients: z.array(z.string()).default([]),
+  /** Cross-version rollup counts (always present). */
+  counts: z.object({
+    warnings: z.number().int(),
+    functions: z.number().int(),
+    errors: z.number().int(),
+    artifacts: z.number().int(),
+  }),
+  /** The flattened items for the requested `kind` (empty for "summary"). */
+  items: z.array(z.record(z.string(), z.unknown())).default([]),
+  queriedAt: z.string(),
+});
+
 /** The session-record model definition. */
 export const model = {
   type: "@vcjdeboer/session-record",
-  version: "2026.06.21.2",
+  version: "2026.06.29.1",
   globalArguments: z.object({}),
   resources: {
     "execution": {
@@ -346,6 +374,13 @@ export const model = {
       schema: ExecutionSchema,
       lifetime: "infinite",
       garbageCollection: 100,
+    },
+    "query": {
+      description:
+        "Cross-version session rollup (counts + warnings/functions/errors), built in-process via queryData + readResource",
+      schema: QueryResultSchema,
+      lifetime: "infinite",
+      garbageCollection: 50,
     },
   },
   files: {
@@ -721,6 +756,137 @@ export const model = {
           },
         );
         return { dataHandles: handles };
+      },
+    },
+    query: {
+      description:
+        "Roll up a session across the ledger's versions — counts + all warnings/functions/errors — using swamp's in-process queryData (version enumeration) + readResource (per-version content). No subprocess, no datastore.",
+      arguments: QueryArgsSchema,
+      execute: async (
+        args: z.infer<typeof QueryArgsSchema>,
+        context: {
+          modelId: string;
+          queryData?: (
+            predicate: string,
+            select?: string,
+          ) => Promise<unknown[]>;
+          readResource?: (
+            instanceName: string,
+            version?: number,
+          ) => Promise<Record<string, unknown> | null>;
+          writeResource: (
+            specName: string,
+            instanceName: string,
+            data: unknown,
+          ) => Promise<{ version: number }>;
+          logger: {
+            info: (msg: string, props?: Record<string, unknown>) => void;
+          };
+        },
+      ): Promise<{ dataHandles: unknown[] }> => {
+        if (!context.queryData || !context.readResource) {
+          throw new Error(
+            "session-record `query` needs a runtime providing queryData + readResource (the in-process raw driver does; a remote/bundle driver may not).",
+          );
+        }
+        // (1) Enumerate THIS instance's execution versions in-process (metadata
+        // only — `data query` filters/returns the envelope, not the content; and
+        // `modelId` is NOT a queryable predicate field, so scope by modelType +
+        // specName in the predicate and filter modelId on the returned records).
+        const rows = await context.queryData(
+          `modelType == "@vcjdeboer/session-record" && specName == "execution" && version > 0`,
+        ) as Array<{ version?: number; modelId?: string }>;
+        const vnums = [
+          ...new Set(
+            rows
+              .filter((r) => r.modelId === context.modelId)
+              .map((r) => Number(r.version))
+              .filter((n) => Number.isFinite(n) && n > 0),
+          ),
+        ].sort((a, b) => a - b);
+
+        // (2) Read each version's content in-process (readResource by instance+version).
+        const recs: Array<Record<string, unknown>> = [];
+        for (const v of vnums) {
+          const c = await context.readResource("log", v);
+          if (c) recs.push(c);
+        }
+
+        // (3) Resolve the target session (latest if unspecified).
+        let session = args.session;
+        if (!session && recs.length) {
+          session = String(recs[recs.length - 1].session ?? "");
+        }
+        const inSession = recs.filter((r) =>
+          String(r.session ?? "") === session
+        );
+
+        // (4) Roll up.
+        const seqs = inSession.map((r) => Number(r.seq) || 0);
+        const seqRange = inSession.length
+          ? `${Math.min(...seqs)}-${Math.max(...seqs)}`
+          : "";
+        const clients = [
+          ...new Set(
+            inSession
+              .map((r) =>
+                (r.client as { name?: string } | undefined)?.name ?? ""
+              )
+              .filter(Boolean),
+          ),
+        ];
+        const flat = (key: string) =>
+          inSession.flatMap((r) =>
+            Array.isArray(r[key]) ? (r[key] as Record<string, unknown>[]) : []
+          );
+        const warnings = flat("warnings");
+        const functions = flat("functions");
+        const artifacts = flat("artifacts");
+        const errors = inSession
+          .filter((r) =>
+            !!(r.error as { message?: string } | undefined)?.message
+          )
+          .map((r) => ({
+            seq: Number(r.seq) || 0,
+            ...(r.error as Record<string, unknown>),
+          }));
+
+        const counts = {
+          warnings: warnings.length,
+          functions: functions.length,
+          errors: errors.length,
+          artifacts: artifacts.length,
+        };
+        const items = args.kind === "warnings"
+          ? warnings
+          : args.kind === "functions"
+          ? functions
+          : args.kind === "errors"
+          ? errors
+          : [];
+
+        const handle = await context.writeResource("query", "result", {
+          session,
+          kind: args.kind,
+          records: inSession.length,
+          seqRange,
+          clients,
+          counts,
+          items,
+          queriedAt: new Date().toISOString(),
+        });
+        context.logger.info(
+          "query {kind} session {session}: {n} records — {w} warnings, {f} functions, {e} errors",
+          {
+            kind: args.kind,
+            session,
+            n: inSession.length,
+            w: counts.warnings,
+            f: counts.functions,
+            e: counts.errors,
+          },
+        );
+        return { dataHandles: [handle] };
       },
     },
   },
