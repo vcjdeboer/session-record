@@ -365,7 +365,7 @@ const QueryResultSchema = z.object({
 /** The session-record model definition. */
 export const model = {
   type: "@vcjdeboer/session-record",
-  version: "2026.06.29.1",
+  version: "2026.07.16.1",
   globalArguments: z.object({}),
   resources: {
     "execution": {
