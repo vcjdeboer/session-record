@@ -46,33 +46,57 @@ import { z } from "npm:zod@4";
 const RecordArgsSchema = z.object({
   // --- discriminator constants (client-supplied) ---
   /** REQUIRED discriminator. Known: "r" | "python" | "julia" | "javascript". */
-  language: z.string().min(1),
+  language: z.string().min(1)
+    .describe(
+      "REQUIRED. Language discriminator: 'r' | 'python' | 'julia' | 'javascript'.",
+    ),
   /** Recorder name, e.g. "swamprecord". */
-  clientName: z.string().default(""),
+  clientName: z.string().optional().default("")
+    .describe("Recorder name, e.g. 'swamprecord'."),
   /** Recorder version, e.g. packageVersion("swamprecord"). */
-  clientVersion: z.string().default(""),
+  clientVersion: z.string().optional().default("")
+    .describe("Recorder version string."),
   /** Runtime/build name: "R" | "webr" | "cpython" | "julia" | "IRkernel". */
-  runtimeName: z.string().default(""),
+  runtimeName: z.string().optional().default("")
+    .describe(
+      "Runtime/build name: 'R' | 'webr' | 'cpython' | 'julia' | 'IRkernel'.",
+    ),
   /** Runtime kind: "repl" | "script" | "jupyter-kernel" | "pluto" | "browser". */
-  runtimeKind: z.string().default(""),
+  runtimeKind: z.string().optional().default("")
+    .describe(
+      "Runtime kind: 'repl' | 'script' | 'jupyter-kernel' | 'pluto' | 'browser'.",
+    ),
   /** Optional per-cell foreign code language (e.g. %%bash in a py kernel). */
-  codeLanguage: z.string().default(""),
+  codeLanguage: z.string().optional().default("")
+    .describe("Per-cell foreign code language (e.g. %%bash in a py kernel)."),
 
   // --- payload file paths ---
   /** Path to a file containing the executed source. */
-  codePath: z.string().min(1),
+  codePath: z.string().min(1)
+    .describe("REQUIRED. Path to a file containing the executed source."),
   /** Path to a file with the value summary (was outputPath; R: str()). */
-  valueSummaryPath: z.string().default(""),
+  valueSummaryPath: z.string().optional().default("")
+    .describe("Path to a file holding the value summary (R: str())."),
   /** Path to a file with the printed/console output (stdout), capped. */
-  consolePath: z.string().default(""),
+  consolePath: z.string().optional().default("")
+    .describe(
+      "Path to a file holding printed/console output (stdout), capped.",
+    ),
 
   // --- value artifacts: 3 R writer slots, now feed artifacts[] ---
   /** Path to a PNG, if the value was a ggplot. -> artifact kind=image. */
-  plotPath: z.string().default(""),
+  plotPath: z.string().optional().default("")
+    .describe("Path to a PNG if the value was a plot -> artifact kind=image."),
   /** Path to a CSV, if the value was a data frame. -> artifact kind=table. */
-  framePath: z.string().default(""),
+  framePath: z.string().optional().default("")
+    .describe(
+      "Path to a CSV if the value was a data frame -> artifact kind=table.",
+    ),
   /** Path to an RDS, if the value was a list/other. -> artifact kind=object. */
-  objectPath: z.string().default(""),
+  objectPath: z.string().optional().default("")
+    .describe(
+      "Path to an RDS if the value was a list/other -> artifact kind=object.",
+    ),
 
   // --- manifests ---
   /**
@@ -81,7 +105,11 @@ const RecordArgsSchema = z.object({
    * kind in {csv,rds,none}; datapath empty when fingerprint-only.
    * (Was class/dim columns -> mapped to type/shape.)
    */
-  inputsManifest: z.string().default(""),
+  inputsManifest: z.string().optional().default("")
+    .describe(
+      "Path to a TSV of read workspace bindings, one per line: " +
+        "name/type/shape/bytes/kind/hash/datapath.",
+    ),
   /**
    * NEW (additive). TSV manifest of USER FUNCTIONS the run touched, one per line:
    *   name <TAB> defined <TAB> sourcePath <TAB> hash <TAB> usesVars <TAB> callsFns <TAB> verified
@@ -93,61 +121,102 @@ const RecordArgsSchema = z.object({
    * data / dispatch). Library functions are NOT here — they're pinned by
    * package@version in the env sidecar.
    */
-  functionsManifest: z.string().default(""),
+  functionsManifest: z.string().optional().default("")
+    .describe(
+      "Path to a TSV of user functions the run touched, one per line: " +
+        "name/defined/sourcePath/hash/usesVars/callsFns/verified.",
+    ),
   /**
    * NEW (additive). TSV manifest of files/resources the run READ:
    *   path <TAB> bytes <TAB> kind <TAB> hash <TAB> datapath
    * Lets "sales.csv was read" be representable. R may leave empty.
    */
-  readsManifest: z.string().default(""),
+  readsManifest: z.string().optional().default("")
+    .describe(
+      "Path to a TSV of files the run READ, one per line: " +
+        "path/bytes/kind/hash/datapath.",
+    ),
   /**
    * TSV manifest of files the run WROTE:
    *   path <TAB> bytes <TAB> kind <TAB> hash <TAB> datapath
    */
-  outputsManifest: z.string().default(""),
+  outputsManifest: z.string().optional().default("")
+    .describe(
+      "Path to a TSV of files the run WROTE, one per line: " +
+        "path/bytes/kind/hash/datapath.",
+    ),
   /**
    * TSV warnings manifest, one per line (newlines pre-stripped):
    *   message <TAB> call <TAB> category <TAB> file <TAB> line
    * R fills message+call; Python fills message+category+file+line. Trailing
    * columns optional — short lines tolerated.
    */
-  warningsPath: z.string().default(""),
+  warningsPath: z.string().optional().default("")
+    .describe(
+      "Path to a TSV of warnings, one per line: " +
+        "message/call/category/file/line (trailing columns optional).",
+    ),
 
   // --- system / runtime ---
   /**
    * 4-line positional file (blanks preserved):
    *   line1=language version string, line2=platform, line3=working dir, line4=locale.
    */
-  sysmetaPath: z.string().default(""),
+  sysmetaPath: z.string().optional().default("")
+    .describe(
+      "Path to a 4-line positional file: " +
+        "language version, platform, working dir, locale.",
+    ),
   /** R sidecar: reproducibility options, "key=value" per line. */
-  optionsPath: z.string().default(""),
+  optionsPath: z.string().optional().default("")
+    .describe(
+      "R sidecar: path to reproducibility options, 'key=value' per line.",
+    ),
   /** R sidecar: attached packages, "pkg version" per line. */
-  loadedPath: z.string().default(""),
+  loadedPath: z.string().optional().default("")
+    .describe("R sidecar: path to attached packages, 'pkg version' per line."),
   /** R sidecar: ALL installed packages, "pkg version" per line. */
-  installedPath: z.string().default(""),
+  installedPath: z.string().optional().default("")
+    .describe(
+      "R sidecar: path to ALL installed packages, 'pkg version' per line.",
+    ),
 
   // --- reproducibility / rng ---
   /**
    * Path to a BINARY RNG-state file (was rngSeedPath; R: RDS of .Random.seed).
    * Stored as reprostate-<session>-<seq>. Set only when the run consumed the RNG.
    */
-  reproStatePath: z.string().default(""),
+  reproStatePath: z.string().optional().default("")
+    .describe(
+      "Path to a BINARY RNG-state file. Set only when the run consumed the RNG.",
+    ),
 
   // --- ordering / status ---
   /** Per-(session,client) sequence number. NOT globally monotonic. */
-  seq: z.string().default(""),
+  seq: z.string().optional().default("")
+    .describe(
+      "Per-(session,client) sequence number. NOT globally monotonic.",
+    ),
   /** Session id (scopes seq across re-sources / restarts). */
-  session: z.string().default(""),
+  session: z.string().optional().default("")
+    .describe("Session id; scopes seq across re-sources / restarts."),
   /** Optional Jupyter [n] execution count (per-kernel). */
-  executionCount: z.string().default(""),
+  executionCount: z.string().optional().default("")
+    .describe("Jupyter [n] execution count (per-kernel)."),
   /** Client-side ISO timestamp of when the code ran. */
-  execTimestamp: z.string().default(""),
+  execTimestamp: z.string().optional().default("")
+    .describe("Client-side ISO timestamp of when the code ran."),
   /** Path to a file with the error message (when status="error"). */
-  errorPath: z.string().default(""),
+  errorPath: z.string().optional().default("")
+    .describe("Path to a file with the error message (when status='error')."),
   /** Optional exception class/type (Python KeyError/ValueError; R leaves ""). */
-  errorType: z.string().default(""),
+  errorType: z.string().optional().default("")
+    .describe(
+      "Exception class/type (Python KeyError/ValueError; R leaves empty).",
+    ),
   /** "ok" or "error". */
-  status: z.string().default("ok"),
+  status: z.string().optional().default("ok")
+    .describe("Execution status: 'ok' or 'error'. Defaults to 'ok'."),
 });
 
 /* ===========================================================================
@@ -278,6 +347,19 @@ const ReproStateSchema = z.object({
  * env["r"] = { options, loadedPackages, installedPackages }; other languages
  * fill env["python"]/env["julia"]/env["webr"] (documented conventions, not enforced).
  * =========================================================================== */
+/**
+ * One promised-but-unreadable payload. Presence of any of these means the
+ * record is an honest partial, not a confident blank.
+ */
+const CaptureErrorSchema = z.object({
+  /** The RecordArgs field whose path failed, e.g. "consolePath". */
+  field: z.string(),
+  /** The path as supplied by the client. */
+  path: z.string(),
+  /** Reason the read failed (error name + message, or "file is empty"). */
+  error: z.string(),
+});
+
 const ExecutionSchema = z.object({
   // --- REQUIRED neutral core ---
   language: z.string().min(1),
@@ -305,6 +387,17 @@ const ExecutionSchema = z.object({
   reproState: ReproStateSchema,
   env: z.record(z.string(), z.unknown()).default({}),
   executionCount: z.number().int().optional(),
+
+  // --- CAPTURE INTEGRITY (orthogonal to `status`) ---
+  /**
+   * Payloads the caller PROMISED (non-empty path argument) that could not be
+   * read at ingest. Deliberately separate from `status`: `status` reports
+   * whether the recorded CODE succeeded, this reports whether the RECORD of it
+   * is complete. A cell can succeed while its console file is unreadable.
+   */
+  captureErrors: z.array(CaptureErrorSchema).default([]),
+  /** false when captureErrors is non-empty — this record is known-incomplete. */
+  captureComplete: z.boolean().default(true),
 
   // --- DERIVED backward-compat (arrays are source of truth) ---
   hasSeed: z.boolean().default(false),
@@ -336,11 +429,18 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
 
 const QueryArgsSchema = z.object({
   /** Session to roll up. Empty => the LATEST session in the ledger. */
-  session: z.string().default(""),
+  session: z.string().optional().default("")
+    .describe(
+      "Session to roll up. Empty selects the LATEST session in the ledger.",
+    ),
   /** What to project alongside the always-present counts. */
-  kind: z.enum(["summary", "warnings", "functions", "errors"]).default(
-    "summary",
-  ),
+  kind: z.enum(["summary", "warnings", "functions", "errors", "partial"])
+    .optional().default("summary")
+    .describe(
+      "What to project alongside the always-present counts: " +
+        "'summary' | 'warnings' | 'functions' | 'errors' | 'partial' " +
+        "('partial' lists the capture faults of known-incomplete records).",
+    ),
 });
 
 const QueryResultSchema = z.object({
@@ -356,6 +456,12 @@ const QueryResultSchema = z.object({
     functions: z.number().int(),
     errors: z.number().int(),
     artifacts: z.number().int(),
+    /**
+     * Records in this session with `captureComplete === false`. Non-zero means
+     * the ledger is a known-incomplete account of the session — check before
+     * sealing it with session-witness.
+     */
+    partial: z.number().int(),
   }),
   /** The flattened items for the requested `kind` (empty for "summary"). */
   items: z.array(z.record(z.string(), z.unknown())).default([]),
@@ -365,8 +471,19 @@ const QueryResultSchema = z.object({
 /** The session-record model definition. */
 export const model = {
   type: "@vcjdeboer/session-record",
-  version: "2026.07.16.1",
+  version: "2026.09.05.1",
   globalArguments: z.object({}),
+  upgrades: [
+    {
+      toVersion: "2026.09.05.1",
+      description:
+        "No-op for globalArguments (this model has none). Bumps typeVersion so " +
+        "existing instances pick up: capture-fault recording (captureErrors[] / " +
+        "captureComplete), the query `partial` count + projection, and a method " +
+        "surface that publishes its 27 defaulted arguments as optional.",
+      upgradeAttributes: (old: Record<string, unknown>) => old,
+    },
+  ],
   resources: {
     "execution": {
       description:
@@ -443,27 +560,72 @@ export const model = {
         const sid = safeName(args.session || "session");
         const seqNum = Number(args.seq) || 0;
 
-        const readText = (p: string): Promise<string> =>
-          p ? Deno.readTextFile(p).catch(() => "") : Promise.resolve("");
-        const readLines = async (p: string): Promise<string[]> => {
-          if (!p) return [];
-          const t = await Deno.readTextFile(p).catch(() => "");
+        /**
+         * Capture faults for THIS record. An empty path argument means the
+         * caller had nothing to send (absent by design) and is NOT a fault; a
+         * non-empty path we could not read IS one. Recording the difference is
+         * the point: a ledger must be able to say "I don't know" instead of
+         * silently saying "nothing".
+         */
+        const captureErrors: {
+          field: string;
+          path: string;
+          error: string;
+        }[] = [];
+        const noteFault = (field: string, p: string, e: unknown): void => {
+          captureErrors.push({
+            field,
+            path: p,
+            error: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
+          });
+        };
+
+        const readText = async (field: string, p: string): Promise<string> => {
+          if (!p) return "";
+          try {
+            return await Deno.readTextFile(p);
+          } catch (e) {
+            noteFault(field, p, e);
+            return "";
+          }
+        };
+        const readLines = async (
+          field: string,
+          p: string,
+        ): Promise<string[]> => {
+          const t = await readText(field, p);
           return t.split("\n").map((s) => s.trim()).filter((s) => s.length > 0);
         };
         // Positional read: keep blanks so sysmeta indices stay aligned.
-        const readRaw = async (p: string): Promise<string[]> => {
+        const readRaw = async (field: string, p: string): Promise<string[]> => {
           if (!p) return [];
-          const t = await Deno.readTextFile(p).catch(() => "");
+          const t = await readText(field, p);
           return t.replace(/\n$/, "").split("\n");
         };
-        const readBytes = async (p: string): Promise<Uint8Array | null> => {
+        const readBytes = async (
+          field: string,
+          p: string,
+        ): Promise<Uint8Array | null> => {
           if (!p) return null;
-          const b = await Deno.readFile(p).catch(() => null);
-          return b && b.length > 0 ? b : null;
+          let b: Uint8Array;
+          try {
+            b = await Deno.readFile(p);
+          } catch (e) {
+            noteFault(field, p, e);
+            return null;
+          }
+          if (b.length === 0) {
+            noteFault(field, p, "file is empty");
+            return null;
+          }
+          return b;
         };
-        const readManifest = async (p: string): Promise<ManifestRow[]> => {
+        const readManifest = async (
+          field: string,
+          p: string,
+        ): Promise<ManifestRow[]> => {
           if (!p) return [];
-          const txt = await Deno.readTextFile(p).catch(() => "");
+          const txt = await readText(field, p);
           const rows: ManifestRow[] = [];
           for (const line of txt.split("\n")) {
             if (!line.trim()) continue;
@@ -472,13 +634,16 @@ export const model = {
           return rows;
         };
 
-        const code = await readText(args.codePath);
-        const valueSummary = await readText(args.valueSummaryPath);
-        const consoleText = await readText(args.consolePath);
-        const errorMsg = await readText(args.errorPath);
+        const code = await readText("codePath", args.codePath);
+        const valueSummary = await readText(
+          "valueSummaryPath",
+          args.valueSummaryPath,
+        );
+        const consoleText = await readText("consolePath", args.consolePath);
+        const errorMsg = await readText("errorPath", args.errorPath);
 
         // --- runtime (was `system`) ---
-        const sysmeta = await readRaw(args.sysmetaPath);
+        const sysmeta = await readRaw("sysmetaPath", args.sysmetaPath);
         const runtime = {
           name: args.runtimeName || "",
           version: sysmeta[0] ?? "",
@@ -494,9 +659,12 @@ export const model = {
         // env[<language>] so the sidecar is multi-language with no new arg keys.
         const env: Record<string, unknown> = {};
         {
-          const opts = await readLines(args.optionsPath);
-          const loaded = await readLines(args.loadedPath);
-          const installed = await readLines(args.installedPath);
+          const opts = await readLines("optionsPath", args.optionsPath);
+          const loaded = await readLines("loadedPath", args.loadedPath);
+          const installed = await readLines(
+            "installedPath",
+            args.installedPath,
+          );
           if (opts.length || loaded.length || installed.length) {
             const sidecar: Record<string, unknown> = {};
             if (opts.length) sidecar.options = opts;
@@ -507,21 +675,25 @@ export const model = {
         }
 
         // --- warnings (5 cols; denormalized language+seq) ---
-        const warnings = (await readLines(args.warningsPath)).map((line) => {
-          const f = line.split("\t");
-          return {
-            message: f[0] ?? "",
-            call: f[1] ?? "",
-            category: f[2] ?? "",
-            file: f[3] ?? "",
-            line: Number(f[4]) || 0,
-            language: args.language,
-            seq: seqNum,
-          };
-        });
+        const warnings = (await readLines("warningsPath", args.warningsPath))
+          .map((line) => {
+            const f = line.split("\t");
+            return {
+              message: f[0] ?? "",
+              call: f[1] ?? "",
+              category: f[2] ?? "",
+              file: f[3] ?? "",
+              line: Number(f[4]) || 0,
+              language: args.language,
+              seq: seqNum,
+            };
+          });
 
         // --- inputs (col2 class->type, col3 dim->shape) ---
-        const inputRows = await readManifest(args.inputsManifest);
+        const inputRows = await readManifest(
+          "inputsManifest",
+          args.inputsManifest,
+        );
         const inputs = inputRows.map((r) => {
           const f = r.cols;
           return {
@@ -539,10 +711,14 @@ export const model = {
         const splitList = (s: string) =>
           s.split(",").map((x) => x.trim()).filter((x) => x.length > 0);
         const truthy = (s: string) => /^(true|t|1|yes)$/i.test(s.trim());
-        const fnRows = await readManifest(args.functionsManifest);
+        const fnRows = await readManifest(
+          "functionsManifest",
+          args.functionsManifest,
+        );
         const functions = await Promise.all(fnRows.map(async (r) => {
           const f = r.cols;
-          const srcText = (await readText(f[2] ?? "")).replace(/\n+$/, "");
+          const srcText = (await readText("functions.sourcePath", f[2] ?? ""))
+            .replace(/\n+$/, "");
           return {
             name: f[0] ?? "",
             defined: truthy(f[1] ?? ""),
@@ -557,7 +733,10 @@ export const model = {
         }));
 
         // --- reads (files the run READ) ---
-        const readRows = await readManifest(args.readsManifest);
+        const readRows = await readManifest(
+          "readsManifest",
+          args.readsManifest,
+        );
         const reads = readRows.map((r) => {
           const f = r.cols;
           return {
@@ -569,7 +748,10 @@ export const model = {
         });
 
         // --- outputs (files the run WROTE) ---
-        const outputRows = await readManifest(args.outputsManifest);
+        const outputRows = await readManifest(
+          "outputsManifest",
+          args.outputsManifest,
+        );
         const outputFiles = outputRows.map((r) => {
           const f = r.cols;
           return {
@@ -581,7 +763,10 @@ export const model = {
         });
 
         // --- reproState (was hasSeed + .Random.seed) ---
-        const reproBytes = await readBytes(args.reproStatePath);
+        const reproBytes = await readBytes(
+          "reproStatePath",
+          args.reproStatePath,
+        );
         const reproState = reproBytes
           ? {
             generator: args.language === "r" ? "r-random-seed" : "",
@@ -597,9 +782,9 @@ export const model = {
         let artBytes: Uint8Array | null = null;
         let artMedia = "";
         let artRef = "";
-        const plot = await readBytes(args.plotPath);
-        const frame = await readBytes(args.framePath);
-        const object = await readBytes(args.objectPath);
+        const plot = await readBytes("plotPath", args.plotPath);
+        const frame = await readBytes("framePath", args.framePath);
+        const object = await readBytes("objectPath", args.objectPath);
         const pushArtifact = async (
           b: Uint8Array,
           kind: string,
@@ -653,7 +838,19 @@ export const model = {
             : undefined,
           hasSeed: reproState.present,
           hasArtifacts: artifacts.length > 0,
+          captureErrors,
+          captureComplete: captureErrors.length === 0,
         };
+        if (captureErrors.length > 0) {
+          context.logger.info(
+            `session-record: ${captureErrors.length} promised payload(s) were unreadable; recording a PARTIAL record`,
+            {
+              session: args.session,
+              seq: seqNum,
+              fields: captureErrors.map((c) => c.field).join(","),
+            },
+          );
+        }
         const handle = await context.writeResource("execution", "log", record);
         const handles: unknown[] = [handle];
 
@@ -679,7 +876,7 @@ export const model = {
           const kind = f[4] ?? "none";
           const datapath = f[6] ?? "";
           if (kind === "none" || !datapath) continue;
-          const data = await readBytes(datapath);
+          const data = await readBytes("inputs.datapath", datapath);
           if (!data) continue;
           handles.push(
             await context
@@ -703,7 +900,7 @@ export const model = {
           const kind = f[2] ?? "none";
           const datapath = f[4] ?? "";
           if (kind === "none" || !datapath) continue;
-          const data = await readBytes(datapath);
+          const data = await readBytes("reads.datapath", datapath);
           if (!data) continue;
           handles.push(
             await context
@@ -724,7 +921,7 @@ export const model = {
           const kind = f[2] ?? "none";
           const datapath = f[4] ?? "";
           if (kind === "none" || !datapath) continue;
-          const data = await readBytes(datapath);
+          const data = await readBytes("outputs.datapath", datapath);
           if (!data) continue;
           handles.push(
             await context
@@ -851,11 +1048,22 @@ export const model = {
             ...(r.error as Record<string, unknown>),
           }));
 
+        // Records that recorded a capture fault. Denormalized with seq so the
+        // projection is a flat filter, like warnings/functions/errors above.
+        const partial = inSession
+          .filter((r) => r.captureComplete === false)
+          .flatMap((r) =>
+            (Array.isArray(r.captureErrors)
+              ? (r.captureErrors as Record<string, unknown>[])
+              : []).map((ce) => ({ seq: Number(r.seq) || 0, ...ce }))
+          );
+
         const counts = {
           warnings: warnings.length,
           functions: functions.length,
           errors: errors.length,
           artifacts: artifacts.length,
+          partial: inSession.filter((r) => r.captureComplete === false).length,
         };
         const items = args.kind === "warnings"
           ? warnings
@@ -863,6 +1071,8 @@ export const model = {
           ? functions
           : args.kind === "errors"
           ? errors
+          : args.kind === "partial"
+          ? partial
           : [];
 
         const handle = await context.writeResource("query", "result", {
@@ -876,7 +1086,7 @@ export const model = {
           queriedAt: new Date().toISOString(),
         });
         context.logger.info(
-          "query {kind} session {session}: {n} records — {w} warnings, {f} functions, {e} errors",
+          "query {kind} session {session}: {n} records — {w} warnings, {f} functions, {e} errors, {p} partial",
           {
             kind: args.kind,
             session,
@@ -884,6 +1094,7 @@ export const model = {
             w: counts.warnings,
             f: counts.functions,
             e: counts.errors,
+            p: counts.partial,
           },
         );
         return { dataHandles: [handle] };
