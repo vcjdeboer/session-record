@@ -419,8 +419,14 @@ function baseName(p: string): string {
   return parts[parts.length - 1] || p;
 }
 
-/** Hex SHA-256 of a byte buffer (artifacts are small; model-side hashing is cheap). */
-async function sha256Hex(bytes: Uint8Array): Promise<string> {
+/**
+ * Hex SHA-256 of a byte buffer (artifacts are small; model-side hashing is
+ * cheap). Takes `Uint8Array<ArrayBuffer>` rather than a bare `Uint8Array`:
+ * the latter widens to `ArrayBufferLike`, which admits SharedArrayBuffer and
+ * so is not assignable to crypto.subtle's BufferSource. Every caller here
+ * comes from Deno.readFile, which is already ArrayBuffer-backed.
+ */
+async function sha256Hex(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, "0"))
@@ -471,7 +477,7 @@ const QueryResultSchema = z.object({
 /** The session-record model definition. */
 export const model = {
   type: "@vcjdeboer/session-record",
-  version: "2026.09.05.1",
+  version: "2026.09.05.2",
   globalArguments: z.object({}),
   upgrades: [
     {
@@ -481,6 +487,14 @@ export const model = {
         "existing instances pick up: capture-fault recording (captureErrors[] / " +
         "captureComplete), the query `partial` count + projection, and a method " +
         "surface that publishes its 27 defaulted arguments as optional.",
+      upgradeAttributes: (old: Record<string, unknown>) => old,
+    },
+    {
+      toVersion: "2026.09.05.2",
+      description:
+        "No-op for globalArguments. Bumps typeVersion so existing instances " +
+        "pick up the sha256Hex signature fix (Uint8Array<ArrayBuffer>), which " +
+        "restores a clean type-check over the artifact-hashing path.",
       upgradeAttributes: (old: Record<string, unknown>) => old,
     },
   ],
@@ -605,9 +619,9 @@ export const model = {
         const readBytes = async (
           field: string,
           p: string,
-        ): Promise<Uint8Array | null> => {
+        ): Promise<Uint8Array<ArrayBuffer> | null> => {
           if (!p) return null;
-          let b: Uint8Array;
+          let b: Uint8Array<ArrayBuffer>;
           try {
             b = await Deno.readFile(p);
           } catch (e) {
@@ -779,14 +793,14 @@ export const model = {
 
         // --- value artifacts -> artifacts[] (R sends at most one, by precedence) ---
         const artifacts: Array<z.infer<typeof ArtifactSchema>> = [];
-        let artBytes: Uint8Array | null = null;
+        let artBytes: Uint8Array<ArrayBuffer> | null = null;
         let artMedia = "";
         let artRef = "";
         const plot = await readBytes("plotPath", args.plotPath);
         const frame = await readBytes("framePath", args.framePath);
         const object = await readBytes("objectPath", args.objectPath);
         const pushArtifact = async (
-          b: Uint8Array,
+          b: Uint8Array<ArrayBuffer>,
           kind: string,
           mediaType: string,
         ) => {

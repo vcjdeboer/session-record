@@ -1,6 +1,6 @@
 manifestVersion: 1
 name: "@vcjdeboer/session-record"
-version: "2026.09.05.1"
+version: "2026.09.05.2"
 description: "Never lose how a result was computed. A language-agnostic provenance ledger for interactive data-science sessions: append one immutable, content-checksummed record per executed cell/chunk — its code, value, figures, console output, warnings, packages, and even runtime-declared functions with their internal dependencies — from any client (R/RStudio, Python/Jupyter, targets, …). One append-only ledger, one record per cell, identical shape across languages: the foundation the rest of the session-* suite fills, seals, and replays. Capture the real computation as it happens, so a session can be audited, sealed (session-witness), or re-run later — not reconstructed from memory."
 repository: "https://github.com/vcjdeboer/session-record"
 paths:
