@@ -46,6 +46,20 @@ swamp data versions rec log --json   # the ordered session ledger
 Each `record` call appends a **new version** of the `log` resource; the version
 history *is* the session, in order.
 
+## Query
+
+Roll up a session's ledger in-process — counts plus a flat projection of
+warnings, functions, errors, artifacts, or capture faults:
+
+```sh
+swamp model method run rec query --input kind=warnings
+swamp model method run rec query --input kind=functions --input session=demo
+```
+
+The `query` method reads every version of the `log` resource for the target
+session and returns a single `query` resource with counts and the requested
+projection items.
+
 ## Clients (recorders)
 
 This extension is the ledger only. To record automatically from a live session,

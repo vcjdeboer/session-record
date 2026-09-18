@@ -217,6 +217,11 @@ const RecordArgsSchema = z.object({
   /** "ok" or "error". */
   status: z.string().optional().default("ok")
     .describe("Execution status: 'ok' or 'error'. Defaults to 'ok'."),
+  /** Wall-clock duration of the cell/chunk execution, in milliseconds. */
+  durationMs: z.string().optional().default("")
+    .describe(
+      "Wall-clock execution duration in milliseconds (client-measured).",
+    ),
 });
 
 /* ===========================================================================
@@ -399,6 +404,10 @@ const ExecutionSchema = z.object({
   /** false when captureErrors is non-empty — this record is known-incomplete. */
   captureComplete: z.boolean().default(true),
 
+  // --- TIMING ---
+  /** Wall-clock execution duration in milliseconds (client-measured). */
+  durationMs: z.number().optional(),
+
   // --- DERIVED backward-compat (arrays are source of truth) ---
   hasSeed: z.boolean().default(false),
   hasArtifacts: z.boolean().default(false),
@@ -440,12 +449,20 @@ const QueryArgsSchema = z.object({
       "Session to roll up. Empty selects the LATEST session in the ledger.",
     ),
   /** What to project alongside the always-present counts. */
-  kind: z.enum(["summary", "warnings", "functions", "errors", "partial"])
+  kind: z
+    .enum([
+      "summary",
+      "warnings",
+      "functions",
+      "errors",
+      "artifacts",
+      "partial",
+    ])
     .optional().default("summary")
     .describe(
       "What to project alongside the always-present counts: " +
-        "'summary' | 'warnings' | 'functions' | 'errors' | 'partial' " +
-        "('partial' lists the capture faults of known-incomplete records).",
+        "'summary' | 'warnings' | 'functions' | 'errors' | 'artifacts' | 'partial' " +
+        "('partial' lists capture faults of known-incomplete records).",
     ),
 });
 
@@ -477,7 +494,7 @@ const QueryResultSchema = z.object({
 /** The session-record model definition. */
 export const model = {
   type: "@vcjdeboer/session-record",
-  version: "2026.09.05.2",
+  version: "2026.09.18.3",
   globalArguments: z.object({}),
   upgrades: [
     {
@@ -495,6 +512,24 @@ export const model = {
         "No-op for globalArguments. Bumps typeVersion so existing instances " +
         "pick up the sha256Hex signature fix (Uint8Array<ArrayBuffer>), which " +
         "restores a clean type-check over the artifact-hashing path.",
+      upgradeAttributes: (old: Record<string, unknown>) => old,
+    },
+    {
+      toVersion: "2026.09.18.1",
+      description:
+        "README: add query method usage section. No code or globalArguments change.",
+      upgradeAttributes: (old: Record<string, unknown>) => old,
+    },
+    {
+      toVersion: "2026.09.18.2",
+      description:
+        "query: add 'artifacts' projection kind — list all artifacts across a session.",
+      upgradeAttributes: (old: Record<string, unknown>) => old,
+    },
+    {
+      toVersion: "2026.09.18.3",
+      description:
+        "record: add optional durationMs (wall-clock execution time in ms, client-measured).",
       upgradeAttributes: (old: Record<string, unknown>) => old,
     },
   ],
@@ -850,6 +885,7 @@ export const model = {
           executionCount: args.executionCount
             ? Number(args.executionCount)
             : undefined,
+          durationMs: args.durationMs ? Number(args.durationMs) : undefined,
           hasSeed: reproState.present,
           hasArtifacts: artifacts.length > 0,
           captureErrors,
@@ -1085,6 +1121,8 @@ export const model = {
           ? functions
           : args.kind === "errors"
           ? errors
+          : args.kind === "artifacts"
+          ? artifacts
           : args.kind === "partial"
           ? partial
           : [];
